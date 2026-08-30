@@ -16,7 +16,7 @@ Set the variables in `example.env` in your shell, then run `server`. Use the sam
 
 Signed Nextendo tokens are required normally. For two instances on one PC, set `SM3DW_LOCAL_LAN=1` and list their account PIDs in `SM3DW_LOCAL_PIDS` if the client sends bare PIDs. This mode only starts on loopback and still checks the accounts. Run `go run ./cmd/nncs-local` for the matching local NAT responder; do not run it alongside another NNCS responder.
 
-The NEX dependency points to a small branch of [my fork](https://github.com/alyeri/nextendo-nex/tree/codex/super-mario-3d-world), based on the current official core. Its new options are off by default. No emulator patches, game files, account data or packet captures are included.
+The NEX dependency points to a small branch of [my fork](https://github.com/alyeri/nextendo-nex/tree/feature/super-mario-3d-world), based on the current official core. Its new options are off by default. No emulator patches, game files, account data or packet captures are included.
 
 The old test relay was removed. This version advertises no relay, which needs checking in the next game test. The shared upstream library still has diagnostic logs, so keep runtime logs private.
 
