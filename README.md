@@ -2,7 +2,7 @@
 
 Experimental Nextendo server for Super Mario 3D World + Bowser's Fury.
 
-Two local Ryujinx-Nextendo instances reached the same level with game update 1.2.2 using the earlier test build. This cleaned-up version still needs another game test. Internet play and an unchanged official client have not been tested.
+Retested on August 30, 2026: two Ryujinx-Nextendo instances on the same Windows PC reached the same level with game update 1.2.2. This used the cleaned-up server, Vulkan, and the local v40 client build with tracing disabled. Internet play and an unchanged official client have not been tested.
 
 The main fix keeps the host's registered public port separate from its LAN UDP port during same-PC testing. The server also delays participation notifications and returns the existing player count on join.
 
@@ -18,6 +18,6 @@ Signed Nextendo tokens are required normally. For two instances on one PC, set `
 
 The NEX dependency points to a small branch of [my fork](https://github.com/alyeri/nextendo-nex/tree/feature/super-mario-3d-world), based on the current official core. Its new options are off by default. No emulator patches, game files, account data or packet captures are included.
 
-The old test relay was removed. This version advertises no relay, which needs checking in the next game test. The shared upstream library still has diagnostic logs, so keep runtime logs private.
+The old test relay was removed. The local retest succeeded with no relay advertised. The shared upstream library still has diagnostic logs, so keep runtime logs private.
 
 Based on [Nextendo Network](https://github.com/NextendoNetwork)'s server layout and account protocol. Original code remains under its license. Debugging and cleanup used AI assistance.
