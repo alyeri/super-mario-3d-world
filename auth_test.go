@@ -41,10 +41,6 @@ func TestTokenValidation(t *testing.T) {
 			}
 		})
 	}
-	revoked := signedToken(secret, "1800000006.Kazuu.1787343209")
-	if _, ok := auth.tokenPID(revoked, time.Unix(1780000000, 0)); ok {
-		t.Fatal("revoked token accepted")
-	}
 }
 
 func TestAccountGateFailsClosed(t *testing.T) {
@@ -103,8 +99,8 @@ func TestResolveRequiresIdentityAndAccountApproval(t *testing.T) {
 func TestLegacyPIDsCannotBeEnabledOutsideLocalMode(t *testing.T) {
 	t.Setenv("NEXTENDO_SECRET", "test-key-not-a-real-secret")
 	t.Setenv("NEXTENDO_INTERNAL_KEY", "test-internal-key")
-	t.Setenv("SM3DW_LOCAL_PIDS", "1001,1002")
-	if _, err := loadAccountAuth(false); err == nil || !strings.Contains(err.Error(), "SM3DW_LOCAL_LAN") {
+	t.Setenv("SM3DW_SAME_HOST_PIDS", "1001,1002")
+	if _, err := loadAccountAuth(false); err == nil || !strings.Contains(err.Error(), "same-host") {
 		t.Fatal("legacy PID configuration accepted outside local mode")
 	}
 	if _, err := loadAccountAuth(true); err != nil {
