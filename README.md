@@ -1,23 +1,38 @@
-# Super Mario 3D World
+# Super Mario 3D World + Bowser's Fury
 
-Experimental Nextendo server for Super Mario 3D World + Bowser's Fury.
+An experimental Nextendo server for Super Mario 3D World + Bowser's Fury. It supports three explicit network profiles:
 
-Retested on August 30, 2026: two Ryujinx-Nextendo instances on the same Windows PC reached the same level with game update 1.2.2. This used the cleaned-up server, Vulkan, and the local v40 client build with tracing disabled. Internet play and an unchanged official client have not been tested.
+- `same-host`: two isolated Ryujinx-Nextendo instances on one computer.
+- `lan`: clients and services reachable through a routed local network.
+- `public-internet`: NEX and NNCS behind one-to-one NAT or directly assigned public addresses.
 
-The main fix keeps the host's registered public port separate from its LAN UDP port during same-PC testing. The server also delays participation notifications and returns the existing player count on join.
+The server was validated with game update 1.2.2, NEX 4.6.4, PRUDP minor 6, and Ryujinx-Nextendo 1.8.2. A two-client same-host test reached character selection and loaded the same level. Internet deployment still requires an acceptance test from two independent networks; seeing a room is not sufficient proof of a working PIA mesh.
 
-Build with Go 1.23 or newer:
+## What changed
+
+The server keeps bind addresses separate from advertised addresses. This is required when a private interface is mapped to a public address. NNCS also requires two distinct, client-reachable identities; mixing an overlay address with a SNATed LAN address makes the same UDP socket appear behind different NATs and leads to strict/symmetric classification and zero-RTT failures.
+
+The game-specific matchmaking policy also:
+
+- delays `Participate` notifications by 100 ms;
+- reports the number of participants that existed before a join;
+- preserves each emulator's registered loopback identity in same-host mode;
+- suppresses loopback-only NAT probes while retaining the reachable LAN candidate.
+
+The small NEX additions are opt-in and live in [the companion branch](https://github.com/alyeri/nextendo-nex/tree/feature/sm3dw-transport). The module replacement is pinned to an exact commit for reproducible builds.
+
+## Build and test
+
+Go 1.23 or newer is required.
 
 ```sh
-go build -o server .
+go test ./...
+go build -o sm3dw-server .
+go build -o sm3dw-nncs ./cmd/nncs
 ```
 
-Set the variables in `example.env` in your shell, then run `server`. Use the same account URL, signing secret and internal key as your Nextendo account service, plus your own TLS certificate and secure password. Route the game's auth hostname (`g2b306a00-lp1.s.n.srv.nintendo.net`) to the auth port.
+Set the variables shown in `example.env`, then run the NEX server and NNCS responder as separate processes with the same environment. The account service must share `NEXTENDO_SECRET` and `NEXTENDO_INTERNAL_KEY` with this server. Signed `nx2` tokens are required outside same-host mode.
 
-Signed Nextendo tokens are required normally. For two instances on one PC, set `SM3DW_LOCAL_LAN=1` and list their account PIDs in `SM3DW_LOCAL_PIDS` if the client sends bare PIDs. This mode only starts on loopback and still checks the accounts. Run `go run ./cmd/nncs-local` for the matching local NAT responder; do not run it alongside another NNCS responder.
+No emulator patch, game file, firmware, key, account, certificate, token, or packet capture is included.
 
-The NEX dependency points to a small branch of [my fork](https://github.com/alyeri/nextendo-nex/tree/feature/super-mario-3d-world), based on the current official core. Its new options are off by default. No emulator patches, game files, account data or packet captures are included.
-
-The old test relay was removed. The local retest succeeded with no relay advertised. The shared upstream library still has diagnostic logs, so keep runtime logs private.
-
-Based on [Nextendo Network](https://github.com/NextendoNetwork)'s server layout and account protocol. Original code remains under its license. Debugging and cleanup used AI assistance.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the network contract and production acceptance checklist.

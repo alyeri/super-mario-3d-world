@@ -6,10 +6,10 @@ import (
 	nex "github.com/NextendoNetwork/nextendo-nex"
 )
 
-func natHandler(localLAN bool) nex.RMCHandler {
+func natHandler(sameHost bool) nex.RMCHandler {
 	next := nex.NATTraversalHandler()
 	return func(c *nex.Connection, request *nex.RMCMessage) *nex.RMCMessage {
-		if localLAN && request.Method == nex.MethodRequestProbeInitiationExt {
+		if sameHost && request.Method == nex.MethodRequestProbeInitiationExt {
 			in := nex.NewStreamIn(request.Body, c.Settings)
 			_ = nex.ReadList(in, func(s *nex.StreamIn) string { return s.String() })
 			station := nex.ParseStationURL(in.String())

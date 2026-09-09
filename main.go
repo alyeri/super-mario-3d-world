@@ -15,6 +15,7 @@ import (
 	"time"
 
 	nex "github.com/NextendoNetwork/nextendo-nex"
+	"github.com/alyeri/super-mario-3d-world/internal/transport"
 	"github.com/lxzan/gws"
 )
 
@@ -25,10 +26,10 @@ const (
 )
 
 type config struct {
-	bindIP, host, certFile, keyFile, securePassword string
-	authPort, securePort                            int
-	localLAN                                        bool
-	auth                                            *accountAuth
+	transport                         transport.Config
+	certFile, keyFile, securePassword string
+	authPort, securePort              int
+	auth                              *accountAuth
 }
 
 func main() {
@@ -46,8 +47,8 @@ func run() error {
 	defer stop()
 	auth, secure := endpoints(cfg)
 	servers := []*http.Server{
-		websocketServer(cfg.bindIP, cfg.authPort, auth),
-		websocketServer(cfg.bindIP, cfg.securePort, secure),
+		websocketServer(cfg.transport.NEXBindIP, cfg.authPort, auth),
+		websocketServer(cfg.transport.NEXBindIP, cfg.securePort, secure),
 	}
 	errs := make(chan error, len(servers))
 	for _, server := range servers {
@@ -75,7 +76,7 @@ func endpoints(cfg config) (*nex.Endpoint, *nex.Endpoint) {
 	settings := nex.NewSwitchSettings(accessKey, nexVersion)
 	settings.PrudpMinorVersion = 6
 	url := nex.NewStationURL("prudp")
-	url.Set("address", cfg.host)
+	url.Set("address", cfg.transport.NEXAdvertisedIP)
 	url.SetInt("port", cfg.securePort)
 	for key, value := range map[string]int{"CID": 1, "PID": securePID, "sid": 1, "stream": 10, "type": 2} {
 		url.SetInt(key, value)
@@ -93,12 +94,12 @@ func endpoints(cfg config) (*nex.Endpoint, *nex.Endpoint) {
 	mm := nex.NewMatchmaking()
 	mm.JoinRespExistingCount = true
 	mm.ParticipationNotificationDelay = 100 * time.Millisecond
-	mm.LocalLoopbackStations = cfg.localLAN
+	mm.LocalLoopbackStations = cfg.transport.SameHost()
 	secure.Register(nex.ProtocolSecureConnection, nex.SecureConnectionHandler())
 	secure.Register(nex.ProtocolMatchmakeExtension, mm.ExtensionHandler())
 	secure.Register(nex.ProtocolMatchMaking, mm.MatchMakingHandler())
 	secure.Register(nex.ProtocolMatchMakingExt, mm.MatchMakingExtHandler())
-	secure.Register(nex.ProtocolNATTraversal, natHandler(cfg.localLAN))
+	secure.Register(nex.ProtocolNATTraversal, natHandler(cfg.transport.SameHost()))
 	secure.Register(nex.ProtocolRanking, nex.RankingHandler())
 	secure.Register(nex.ProtocolUtility, nex.UtilityHandler())
 	secure.OnDisconnect = func(c *nex.Connection) { mm.RemovePlayer(c.PID) }
@@ -132,31 +133,23 @@ func websocketServer(ip string, port int, endpoint *nex.Endpoint) *http.Server {
 }
 
 func loadConfig() (config, error) {
-	cfg := config{
-		bindIP: env("BIND_IP", "127.0.0.1"), host: env("NEXTENDO_HOST", "127.0.0.1"),
-		certFile: env("CERT_FILE", "cert.pem"), keyFile: env("KEY_FILE", "key.pem"),
-		securePassword: os.Getenv("NEXTENDO_SECURE_PASSWORD"),
-		localLAN:       os.Getenv("SM3DW_LOCAL_LAN") == "1",
+	network, err := transport.LoadFromEnv()
+	if err != nil {
+		return config{}, err
 	}
-	var err error
-	if cfg.authPort, err = port("AUTH_PORT", 8460); err != nil {
+	cfg := config{
+		transport: network,
+		certFile:  env("CERT_FILE", "cert.pem"), keyFile: env("KEY_FILE", "key.pem"),
+		securePassword: os.Getenv("NEXTENDO_SECURE_PASSWORD"),
+	}
+	if cfg.authPort, err = port("AUTH_PORT", 443); err != nil {
 		return cfg, err
 	}
-	if cfg.securePort, err = port("SECURE_PORT", 60018); err != nil {
+	if cfg.securePort, err = port("SECURE_PORT", 60003); err != nil {
 		return cfg, err
 	}
 	if cfg.authPort == cfg.securePort {
 		return cfg, fmt.Errorf("AUTH_PORT and SECURE_PORT must differ")
-	}
-	bind := net.ParseIP(cfg.bindIP)
-	if bind == nil {
-		return cfg, fmt.Errorf("BIND_IP must be an IP address")
-	}
-	if net.ParseIP(cfg.host) == nil {
-		return cfg, fmt.Errorf("NEXTENDO_HOST must be an IP address without a port")
-	}
-	if cfg.localLAN && (!bind.IsLoopback() || !net.ParseIP(cfg.host).IsLoopback()) {
-		return cfg, fmt.Errorf("SM3DW_LOCAL_LAN is only for same-PC loopback tests")
 	}
 	if len(cfg.securePassword) < 16 {
 		return cfg, fmt.Errorf("set NEXTENDO_SECURE_PASSWORD to at least 16 characters")
@@ -164,7 +157,7 @@ func loadConfig() (config, error) {
 	if _, err = tls.LoadX509KeyPair(cfg.certFile, cfg.keyFile); err != nil {
 		return cfg, fmt.Errorf("TLS certificate: %w", err)
 	}
-	cfg.auth, err = loadAccountAuth(cfg.localLAN)
+	cfg.auth, err = loadAccountAuth(cfg.transport.SameHost())
 	return cfg, err
 }
 

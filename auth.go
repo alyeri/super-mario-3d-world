@@ -25,7 +25,7 @@ type accountAuth struct {
 	inflight             chan struct{}
 }
 
-func loadAccountAuth(localLAN bool) (*accountAuth, error) {
+func loadAccountAuth(sameHost bool) (*accountAuth, error) {
 	secret := []byte(os.Getenv("NEXTENDO_SECRET"))
 	if len(secret) == 0 {
 		data, err := os.ReadFile(env("NEXTENDO_SECRET_FILE", "nextendo_secret.key"))
@@ -50,14 +50,14 @@ func loadAccountAuth(localLAN bool) (*accountAuth, error) {
 		return nil, fmt.Errorf("NEXTENDO_INTERNAL_KEY is required")
 	}
 	localPIDs := make(map[uint64]bool)
-	if values := os.Getenv("SM3DW_LOCAL_PIDS"); values != "" {
-		if !localLAN {
-			return nil, fmt.Errorf("SM3DW_LOCAL_PIDS requires SM3DW_LOCAL_LAN=1")
+	if values := os.Getenv("SM3DW_SAME_HOST_PIDS"); values != "" {
+		if !sameHost {
+			return nil, fmt.Errorf("SM3DW_SAME_HOST_PIDS requires TRANSPORT_PROFILE=same-host")
 		}
 		for _, value := range strings.Split(values, ",") {
 			pid, err := strconv.ParseUint(strings.TrimSpace(value), 10, 64)
 			if err != nil || pid == 0 {
-				return nil, fmt.Errorf("invalid SM3DW_LOCAL_PIDS entry")
+				return nil, fmt.Errorf("invalid SM3DW_SAME_HOST_PIDS entry")
 			}
 			localPIDs[pid] = true
 		}
@@ -103,10 +103,6 @@ func (a *accountAuth) tokenPID(token string, now time.Time) (uint64, bool) {
 	mac := hmac.New(sha256.New, a.secret)
 	_, _ = mac.Write(append([]byte("nex:"), raw...))
 	if !hmac.Equal(signature, mac.Sum(nil)) {
-		return 0, false
-	}
-	// Revoked by the account service after an old release included a session.
-	if string(raw) == "1800000006.Kazuu.1787343209" {
 		return 0, false
 	}
 	fields := strings.Split(string(raw), ".")
